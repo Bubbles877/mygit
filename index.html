@@ -137,8 +137,8 @@
             oscillator3.stop(audioCtx.currentTime + 0.08);
         }
 
-        // 打撃音（元に戻す前の鋭い斬撃音と同じ）
-        function playHitSound() {
+        // 打撃音（元に戻す前の鋭い斬撃音と同じ、クリティカル時は音量大きく）
+        function playHitSound(isCritical = false) {
             const oscillator1 = audioCtx.createOscillator();
             const oscillator2 = audioCtx.createOscillator();
             const oscillator3 = audioCtx.createOscillator();
@@ -169,7 +169,9 @@
             oscillator4.frequency.setValueAtTime(15000, audioCtx.currentTime);
             oscillator4.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.04);
 
-            gainNode.gain.setValueAtTime(0.7, audioCtx.currentTime);
+            // クリティカル時は音量1.5倍
+            const volume = isCritical ? 1.05 : 0.7;
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
 
             oscillator1.start(audioCtx.currentTime);
@@ -216,8 +218,8 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // 背景の支柱（完全な円柱）
-        const pillarGeometry = new THREE.CylinderGeometry(0.45, 0.45, 8, 64);  // 64セグメントで滑らかに
+        // 背景の支柱（完全な円柱、セグメント数を大幅に増やす）
+        const pillarGeometry = new THREE.CylinderGeometry(0.45, 0.45, 8, 128);  // 128セグメントで完全な円柱
         const pillarMaterial = new THREE.MeshStandardMaterial({
             color: 0x1a3a5a,
             emissive: 0x0096c8,
@@ -243,7 +245,7 @@
             scene.add(pillar);
 
             // 支柱のグロー
-            const glowGeometry = new THREE.CylinderGeometry(0.75, 0.75, 8, 64);  // 64セグメント
+            const glowGeometry = new THREE.CylinderGeometry(0.75, 0.75, 8, 128);  // 128セグメント
             const glowMaterial = new THREE.MeshBasicMaterial({
                 color: 0x0096c8,
                 transparent: true,
@@ -293,6 +295,7 @@
                 this.hitCooldown = 0;
                 this.shakeAmount = 0;
                 this.hitFlash = 0;  // 斬られた時の赤フラッシュ
+                this.isCritical = false;  // クリティカルヒット（赤）かどうか
 
                 const glowGeometry = new THREE.SphereGeometry(1.8, 32, 32);
                 const glowMaterial = new THREE.MeshBasicMaterial({
@@ -310,8 +313,8 @@
                 // 基本色（黄色）
                 const baseColor = new THREE.Color(0xffff00);
 
-                // hitFlashで赤にする（斬られた瞬間が一番赤い）
-                const flashColor = new THREE.Color(0xff0000);
+                // hitFlashで赤かオレンジにする
+                const flashColor = this.isCritical ? new THREE.Color(0xff0000) : new THREE.Color(0xff8800);
                 const finalColor = baseColor.clone().lerp(flashColor, this.hitFlash);
 
                 this.material.color.copy(finalColor);
@@ -378,14 +381,18 @@
                     return true;
                 }
 
-                // ノックバック（短距離）
-                const knockback = new THREE.Vector3(0, 0, -1).multiplyScalar(power * 0.15);
+                // ランダムでクリティカル判定（赤:オレンジ = 1:2）
+                this.isCritical = Math.random() < 0.33;
+
+                // ノックバック（クリティカルの時は大きく）
+                const knockbackPower = this.isCritical ? power * 0.25 : power * 0.15;
+                const knockback = new THREE.Vector3(0, 0, -1).multiplyScalar(knockbackPower);
                 knockback.add(direction.clone().multiplyScalar(power * 0.1));
                 this.velocity.add(knockback);
 
                 this.shakeAmount = 3;  // 振動を3倍に
                 this.hitCooldown = 10;
-                this.hitFlash = 1.0;  // 斬られた瞬間は真っ赤
+                this.hitFlash = 1.0;  // 斬られた瞬間は真っ赤 or オレンジ
 
                 cameraShake.amount = 0.3;
 
@@ -408,10 +415,10 @@
         // 斬られたエフェクト（白くまぶしい楕円平面）
         class SlashEffect {
             constructor(position, perpendicular1, perpendicular2) {
-                // 楕円の平面ジオメトリ
+                // 楕円の平面ジオメトリ（面積を大きく）
                 const shape = new THREE.Shape();
-                const radiusX = 1.5;  // 横幅
-                const radiusY = 0.8;  // 縦幅
+                const radiusX = 2.5;  // 横幅（大きく）
+                const radiusY = 1.5;  // 縦幅（大きく）
                 for (let i = 0; i <= 64; i++) {
                     const angle = (i / 64) * Math.PI * 2;
                     const x = Math.cos(angle) * radiusX;
@@ -432,9 +439,10 @@
                 this.mesh = new THREE.Mesh(geometry, material);
                 this.mesh.position.copy(position);
 
-                // 切り口の平面に沿って回転
-                const normal = new THREE.Vector3().crossVectors(perpendicular1, perpendicular2).normalize();
-                this.mesh.lookAt(position.clone().add(normal));
+                // 切り口の平面に沿って回転（perpendicular1を上方向として使う）
+                const matrix = new THREE.Matrix4();
+                matrix.lookAt(position, position.clone().add(perpendicular2), perpendicular1);
+                this.mesh.quaternion.setFromRotationMatrix(matrix);
 
                 this.life = 1.0;
                 scene.add(this.mesh);
@@ -453,9 +461,9 @@
             }
         }
 
-        // 極細の鋭いパーティクル（薄い板状）
+        // 極細の鋭いパーティクル（薄い板状、少し大きく）
         const particles = [];
-        const sharpParticleGeometry = new THREE.PlaneGeometry(0.03, 0.25);
+        const sharpParticleGeometry = new THREE.PlaneGeometry(0.05, 0.35);
 
         class SharpParticle {
             constructor(position, color, velocity) {
@@ -599,11 +607,11 @@
                     this.targetQuaternion.copy(tempObj.quaternion);
                 }
 
-                // 位置を滑らかに補間（lerp）
-                this.mesh.position.lerp(this.targetPosition, 0.3);
+                // 位置を滑らかに補間（lerp、係数を上げてプルプル感を無くす）
+                this.mesh.position.lerp(this.targetPosition, 0.5);
 
-                // 回転を滑らかに補間（slerp）
-                this.mesh.quaternion.slerp(this.targetQuaternion, 0.2);
+                // 回転を滑らかに補間（slerp、係数を上げてプルプル感を無くす）
+                this.mesh.quaternion.slerp(this.targetQuaternion, 0.4);
 
                 // 剣筋エフェクト（剣を動かしている時）
                 const bladeTipLocalPos = new THREE.Vector3(0, 0, -3.5);  // 剣先のローカル位置
@@ -763,8 +771,11 @@
                     // 白くまぶしい斬撃エフェクトを追加
                     slashEffects.push(new SlashEffect(hitPoint, perpendicular1, perpendicular2));
 
-                    // 鋭いパーティクル（切り口の平面に沿って飛び散る）
-                    for (let i = 0; i < 50; i++) {
+                    // パーティクルの色（クリティカルの時は赤、通常時は黄色）
+                    const particleColor = target.isCritical ? 0xff0000 : target.material.color.getHex();
+
+                    // 鋭いパーティクル（切り口の平面に沿って飛び散る、数を増やす）
+                    for (let i = 0; i < 80; i++) {
                         // 平面上のランダムな方向
                         const angle = Math.random() * Math.PI * 2;
                         const radius = 0.3 + Math.random() * 0.4;
@@ -775,11 +786,11 @@
                         // 少し斬撃方向にも飛ばす
                         planeVelocity.add(slashDir3D.clone().multiplyScalar(0.2));
 
-                        particles.push(new SharpParticle(hitPoint, target.material.color.getHex(), planeVelocity));
+                        particles.push(new SharpParticle(hitPoint, particleColor, planeVelocity));
                     }
 
-                    // 白い光のパーティクル（切り口の平面に沿って飛び散る）
-                    for (let i = 0; i < 30; i++) {
+                    // 白い光のパーティクル（切り口の平面に沿って飛び散る、数を増やす）
+                    for (let i = 0; i < 50; i++) {
                         const angle = Math.random() * Math.PI * 2;
                         const radius = 0.25 + Math.random() * 0.35;
                         const planeVelocity = perpendicular1.clone()
@@ -797,7 +808,7 @@
                     }
                     lastSlashPosition = hitPoint.clone();
 
-                    playHitSound();    // 鋭い打撃音
+                    playHitSound(target.isCritical);  // 鋭い打撃音（クリティカル時は音量大）
                     playSlashSound();  // 風切り音
                 }
             }
