@@ -12,7 +12,7 @@
         }
 
         body {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: #000;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -21,8 +21,6 @@
         }
 
         canvas {
-            border: 2px solid #0f3460;
-            box-shadow: 0 0 30px rgba(15, 52, 96, 0.5);
             cursor: none;
         }
 
@@ -30,10 +28,10 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            color: #e94560;
-            font-size: 24px;
+            color: #00ffff;
+            font-size: 28px;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            text-shadow: 0 0 10px #00ffff, 2px 2px 4px rgba(0, 0, 0, 0.7);
             pointer-events: none;
         }
 
@@ -43,8 +41,8 @@
             left: 50%;
             transform: translateX(-50%);
             color: #fff;
-            font-size: 16px;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+            font-size: 18px;
+            text-shadow: 0 0 10px #00ffff, 1px 1px 2px rgba(0, 0, 0, 0.7);
             pointer-events: none;
         }
     </style>
@@ -52,7 +50,7 @@
 <body>
     <div id="ui">
         <div>スコア: <span id="score">0</span></div>
-        <div style="font-size: 16px; margin-top: 5px;">コンボ: <span id="combo">0</span></div>
+        <div style="font-size: 18px; margin-top: 5px;">コンボ: <span id="combo">0</span></div>
     </div>
     <div id="instructions">
         マウスを素早く動かして的を斬れ！
@@ -74,12 +72,15 @@
 
         // マウス追跡
         const mouse = {
-            x: 0,
-            y: 0,
-            prevX: 0,
-            prevY: 0,
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            prevX: canvas.width / 2,
+            prevY: canvas.height / 2,
             trail: []
         };
+
+        // 剣の残像トレイル
+        const swordTrails = [];
 
         // Audio Context (Web Audio API)
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -92,14 +93,14 @@
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
 
-            oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
-            oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+            oscillator.frequency.setValueAtTime(500, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.15);
 
-            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
 
             oscillator.start(audioCtx.currentTime);
-            oscillator.stop(audioCtx.currentTime + 0.1);
+            oscillator.stop(audioCtx.currentTime + 0.15);
         }
 
         function playHitSound() {
@@ -110,14 +111,79 @@
             gainNode.connect(audioCtx.destination);
 
             oscillator.type = 'sawtooth';
-            oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
-            oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2);
+            oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
 
-            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            gainNode.gain.setValueAtTime(0.6, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
 
             oscillator.start(audioCtx.currentTime);
-            oscillator.stop(audioCtx.currentTime + 0.2);
+            oscillator.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // 3D背景描画
+        function draw3DBackground() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const horizonY = canvas.height * 0.35; // 地平線
+
+            // グラデーション背景（空から床へ）
+            const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGradient.addColorStop(0, '#0a0a1a');
+            bgGradient.addColorStop(0.35, '#1a1a3e');
+            bgGradient.addColorStop(0.35, '#0f0f2e');
+            bgGradient.addColorStop(1, '#050510');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 床のグリッド（遠近法）
+            ctx.strokeStyle = 'rgba(0, 150, 200, 0.3)';
+            ctx.lineWidth = 1;
+
+            const gridLines = 20;
+            const gridSpacing = 50;
+
+            // 横線（奥行き方向）
+            for (let i = 0; i <= gridLines; i++) {
+                const z = i * gridSpacing;
+                const scale = 1 / (1 + z / 500);
+                const y = horizonY + (canvas.height - horizonY) * (1 - scale);
+                const width = canvas.width * scale;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX - width / 2, y);
+                ctx.lineTo(centerX + width / 2, y);
+                ctx.stroke();
+            }
+
+            // 縦線（左右方向）
+            const verticalLines = 15;
+            for (let i = -verticalLines; i <= verticalLines; i++) {
+                ctx.beginPath();
+                ctx.moveTo(centerX + i * 30, horizonY);
+
+                const perspectiveX = centerX + i * (canvas.width / 2);
+                ctx.lineTo(perspectiveX, canvas.height);
+                ctx.stroke();
+            }
+
+            // 背景の壁（奥）
+            const wallGradient = ctx.createLinearGradient(0, 0, 0, horizonY);
+            wallGradient.addColorStop(0, 'rgba(10, 30, 60, 0.5)');
+            wallGradient.addColorStop(1, 'rgba(20, 40, 80, 0.3)');
+            ctx.fillStyle = wallGradient;
+            ctx.fillRect(0, 0, canvas.width, horizonY);
+
+            // グロー効果のライン
+            ctx.strokeStyle = 'rgba(0, 200, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#00ccff';
+            ctx.beginPath();
+            ctx.moveTo(0, horizonY);
+            ctx.lineTo(canvas.width, horizonY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
         }
 
         // パーティクルクラス
@@ -129,35 +195,41 @@
                 this.vx = vx;
                 this.vy = vy;
                 this.life = 1.0;
-                this.size = Math.random() * 4 + 2;
+                this.size = Math.random() * 6 + 3;
             }
 
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
-                this.vy += 0.3; // 重力
-                this.life -= 0.02;
+                this.vy += 0.4; // 重力
+                this.life -= 0.015;
                 this.vx *= 0.98;
             }
 
             draw() {
                 ctx.save();
                 ctx.globalAlpha = this.life;
+
+                // グロー効果
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+
                 ctx.fillStyle = this.color;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fill();
+
                 ctx.restore();
             }
         }
 
-        // カプセル形状の的クラス
+        // カプセル形状の的クラス（大型化）
         class Target {
             constructor(x, y) {
                 this.x = x;
                 this.y = y;
-                this.width = 40;
-                this.height = 100;
+                this.width = 120;  // 3倍に拡大
+                this.height = 300; // 3倍に拡大
                 this.vx = 0;
                 this.vy = 0;
                 this.rotation = 0;
@@ -172,9 +244,9 @@
             }
 
             getColorByHealth() {
-                if (this.health >= 3) return '#ff6b6b';
-                if (this.health === 2) return '#ffa500';
-                return '#ffff00';
+                if (this.health >= 3) return '#ff3366';
+                if (this.health === 2) return '#ff9933';
+                return '#ffff33';
             }
 
             update() {
@@ -183,20 +255,20 @@
                 this.y += this.vy;
 
                 // 摩擦
-                this.vx *= 0.92;
-                this.vy *= 0.92;
+                this.vx *= 0.9;
+                this.vy *= 0.9;
 
                 // 回転
                 this.rotation += this.rotationSpeed;
-                this.rotationSpeed *= 0.95;
+                this.rotationSpeed *= 0.93;
 
                 // ベース位置に戻る力
-                const returnForce = 0.05;
+                const returnForce = 0.08;
                 this.vx += (this.baseX - this.x) * returnForce;
                 this.vy += (this.baseY - this.y) * returnForce;
 
                 // シェイク減衰
-                this.shakeAmount *= 0.9;
+                this.shakeAmount *= 0.85;
 
                 if (this.hitCooldown > 0) {
                     this.hitCooldown--;
@@ -219,8 +291,31 @@
                     );
                 }
 
+                // 影
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.beginPath();
+                const shadowRadius = this.width / 2 + 5;
+                ctx.arc(10, this.height/2 - shadowRadius + 10, shadowRadius, 0, Math.PI * 2);
+                ctx.arc(10, -this.height/2 + shadowRadius + 10, shadowRadius, 0, Math.PI * 2);
+                ctx.rect(-shadowRadius + 10, -this.height/2 + shadowRadius + 10, this.width + 10, this.height - this.width);
+                ctx.fill();
+
                 // カプセル描画（角丸長方形）
                 const radius = this.width / 2;
+
+                // アウトライン（グロー）
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 4;
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(0, -this.height/2 + radius, radius, 0, Math.PI * 2);
+                ctx.arc(0, this.height/2 - radius, radius, 0, Math.PI * 2);
+                ctx.rect(-radius, -this.height/2 + radius, this.width, this.height - this.width);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // メインボディ
                 ctx.fillStyle = this.color;
                 ctx.beginPath();
                 ctx.arc(0, -this.height/2 + radius, radius, 0, Math.PI * 2);
@@ -230,9 +325,9 @@
 
                 // 光沢効果
                 const gradient = ctx.createLinearGradient(-radius, 0, radius, 0);
-                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
                 gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
-                gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
                 ctx.arc(0, -this.height/2 + radius, radius, 0, Math.PI * 2);
@@ -253,21 +348,19 @@
                 }
 
                 // 衝撃を与える
-                const power = Math.min(slashPower * 0.5, 15);
+                const power = Math.min(slashPower * 0.7, 20);
                 this.vx = Math.cos(slashAngle) * power;
                 this.vy = Math.sin(slashAngle) * power;
-                this.rotationSpeed = (Math.random() - 0.5) * 0.3;
-                this.shakeAmount = 10;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.4;
+                this.shakeAmount = 20;
                 this.hitCooldown = 10;
 
                 return true;
             }
 
             respawn() {
-                this.x = Math.random() * (canvas.width - 200) + 100;
-                this.y = Math.random() * (canvas.height - 200) + 100;
-                this.baseX = this.x;
-                this.baseY = this.y;
+                this.x = this.baseX;
+                this.y = this.baseY;
                 this.vx = 0;
                 this.vy = 0;
                 this.rotation = 0;
@@ -328,15 +421,8 @@
         }
 
         // ゲームオブジェクト
-        const targets = [];
+        const target = new Target(canvas.width / 2, canvas.height / 2);
         const particles = [];
-
-        // 的を生成
-        for (let i = 0; i < 5; i++) {
-            const x = Math.random() * (canvas.width - 200) + 100;
-            const y = Math.random() * (canvas.height - 200) + 100;
-            targets.push(new Target(x, y));
-        }
 
         // マウスイベント
         canvas.addEventListener('mousemove', (e) => {
@@ -354,12 +440,24 @@
 
             // 古い軌跡を削除
             const now = Date.now();
-            mouse.trail = mouse.trail.filter(p => now - p.time < 100);
+            mouse.trail = mouse.trail.filter(p => now - p.time < 150);
 
             // 速度計算
             const dx = mouse.x - mouse.prevX;
             const dy = mouse.y - mouse.prevY;
             const speed = Math.sqrt(dx * dx + dy * dy);
+
+            // 剣の残像を追加
+            if (speed > 5) {
+                const angle = Math.atan2(dy, dx);
+                swordTrails.push({
+                    x: mouse.x,
+                    y: mouse.y,
+                    angle: angle,
+                    life: 1.0,
+                    speed: speed
+                });
+            }
 
             // 速い動きの時に斬撃判定
             if (speed > 10) {
@@ -376,48 +474,51 @@
             const speed = Math.sqrt(dx * dx + dy * dy);
             const angle = Math.atan2(dy, dx);
 
-            let hitThisFrame = false;
+            if (target.checkSlash(mouse.prevX, mouse.prevY, mouse.x, mouse.y)) {
+                const hit = target.hit(angle, speed);
+                if (hit) {
+                    // スコア加算
+                    combo++;
+                    comboTimer = 120; // 2秒
+                    score += 10 * combo;
 
-            targets.forEach(target => {
-                if (target.checkSlash(mouse.prevX, mouse.prevY, mouse.x, mouse.y)) {
-                    const hit = target.hit(angle, speed);
-                    if (hit) {
-                        hitThisFrame = true;
-
-                        // スコア加算
-                        combo++;
-                        comboTimer = 120; // 2秒
-                        score += 10 * combo;
-
-                        // パーティクル生成
-                        for (let i = 0; i < 20; i++) {
-                            const particleAngle = angle + (Math.random() - 0.5) * Math.PI;
-                            const particleSpeed = Math.random() * 10 + 5;
-                            particles.push(new Particle(
-                                target.x,
-                                target.y,
-                                target.color,
-                                Math.cos(particleAngle) * particleSpeed,
-                                Math.sin(particleAngle) * particleSpeed
-                            ));
-                        }
-
-                        // ヒット音
-                        playHitSound();
+                    // パーティクル生成（増量）
+                    for (let i = 0; i < 40; i++) {
+                        const particleAngle = angle + (Math.random() - 0.5) * Math.PI;
+                        const particleSpeed = Math.random() * 15 + 8;
+                        particles.push(new Particle(
+                            target.x,
+                            target.y,
+                            target.color,
+                            Math.cos(particleAngle) * particleSpeed,
+                            Math.sin(particleAngle) * particleSpeed
+                        ));
                     }
-                }
-            });
 
-            if (hitThisFrame) {
-                playSlashSound();
+                    // 青白いパーティクルも追加
+                    for (let i = 0; i < 20; i++) {
+                        const particleAngle = angle + (Math.random() - 0.5) * Math.PI;
+                        const particleSpeed = Math.random() * 12 + 5;
+                        particles.push(new Particle(
+                            target.x,
+                            target.y,
+                            '#00ffff',
+                            Math.cos(particleAngle) * particleSpeed,
+                            Math.sin(particleAngle) * particleSpeed
+                        ));
+                    }
+
+                    // ヒット音
+                    playHitSound();
+                    playSlashSound();
+                }
             }
         }
 
         // ゲームループ
         function gameLoop() {
-            // 背景
-            ctx.fillStyle = 'rgba(26, 26, 46, 0.3)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // 3D背景描画
+            draw3DBackground();
 
             // コンボタイマー減少
             if (comboTimer > 0) {
@@ -428,10 +529,8 @@
             }
 
             // 的の更新と描画
-            targets.forEach(target => {
-                target.update();
-                target.draw();
-            });
+            target.update();
+            target.draw();
 
             // パーティクルの更新と描画
             for (let i = particles.length - 1; i >= 0; i--) {
@@ -443,29 +542,71 @@
                 }
             }
 
-            // マウスの軌跡描画（剣の軌跡）
-            if (mouse.trail.length > 1) {
-                const gradient = ctx.createLinearGradient(
-                    mouse.trail[0].x, mouse.trail[0].y,
-                    mouse.trail[mouse.trail.length - 1].x, mouse.trail[mouse.trail.length - 1].y
-                );
-                gradient.addColorStop(0, 'rgba(200, 220, 255, 0)');
-                gradient.addColorStop(1, 'rgba(200, 220, 255, 0.8)');
+            // 剣の残像エフェクト（青白く光る）
+            for (let i = swordTrails.length - 1; i >= 0; i--) {
+                const trail = swordTrails[i];
+                trail.life -= 0.05;
 
-                ctx.strokeStyle = gradient;
-                ctx.lineWidth = 3;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-
-                ctx.beginPath();
-                ctx.moveTo(mouse.trail[0].x, mouse.trail[0].y);
-                for (let i = 1; i < mouse.trail.length; i++) {
-                    ctx.lineTo(mouse.trail[i].x, mouse.trail[i].y);
+                if (trail.life <= 0) {
+                    swordTrails.splice(i, 1);
+                    continue;
                 }
-                ctx.stroke();
+
+                ctx.save();
+                ctx.globalAlpha = trail.life * 0.7;
+                ctx.translate(trail.x, trail.y);
+                ctx.rotate(trail.angle);
+
+                // グロー効果
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = '#00ffff';
+
+                // 剣の残像（青白い）
+                const swordLength = 80 + trail.speed * 2;
+                const gradient = ctx.createLinearGradient(-15, 0, swordLength, 0);
+                gradient.addColorStop(0, 'rgba(100, 200, 255, 0.5)');
+                gradient.addColorStop(0.5, 'rgba(150, 220, 255, 0.8)');
+                gradient.addColorStop(1, 'rgba(200, 240, 255, 0.3)');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-15, -5, swordLength, 10);
+
+                ctx.restore();
             }
 
-            // カーソル描画（剣先）
+            // マウスの軌跡描画（剣の軌跡・強化版）
+            if (mouse.trail.length > 1) {
+                // 複数の軌跡を描画（残像効果）
+                for (let j = 0; j < 3; j++) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.3 - j * 0.1;
+
+                    const gradient = ctx.createLinearGradient(
+                        mouse.trail[0].x, mouse.trail[0].y,
+                        mouse.trail[mouse.trail.length - 1].x, mouse.trail[mouse.trail.length - 1].y
+                    );
+                    gradient.addColorStop(0, 'rgba(100, 200, 255, 0)');
+                    gradient.addColorStop(0.5, 'rgba(150, 220, 255, 0.8)');
+                    gradient.addColorStop(1, 'rgba(200, 240, 255, 1)');
+
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 8 - j * 2;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#00ffff';
+
+                    ctx.beginPath();
+                    ctx.moveTo(mouse.trail[0].x, mouse.trail[0].y);
+                    for (let i = 1; i < mouse.trail.length; i++) {
+                        ctx.lineTo(mouse.trail[i].x, mouse.trail[i].y);
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            // カーソル描画（剣・大型化）
             ctx.save();
             ctx.translate(mouse.x, mouse.y);
             const dx = mouse.x - mouse.prevX;
@@ -473,13 +614,29 @@
             const cursorAngle = Math.atan2(dy, dx);
             ctx.rotate(cursorAngle);
 
-            // 剣の描画
-            ctx.fillStyle = '#c0c0c0';
-            ctx.fillRect(-5, -2, 30, 4);
-            ctx.fillStyle = '#8b4513';
-            ctx.fillRect(-10, -4, 8, 8);
+            // グロー効果
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = '#00ffff';
+
+            // 剣の刀身（拡大）
+            const swordGradient = ctx.createLinearGradient(-15, 0, 90, 0);
+            swordGradient.addColorStop(0, '#a0a0a0');
+            swordGradient.addColorStop(0.5, '#ffffff');
+            swordGradient.addColorStop(1, '#c0c0c0');
+            ctx.fillStyle = swordGradient;
+            ctx.fillRect(-15, -5, 90, 10);
+
+            // 剣の柄
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(-25, -8, 20, 16);
+
+            // 鍔
             ctx.fillStyle = '#ffd700';
-            ctx.fillRect(-3, -3, 3, 6);
+            ctx.fillRect(-8, -10, 8, 20);
+
+            // エッジハイライト
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fillRect(-10, -3, 85, 2);
 
             ctx.restore();
 
@@ -497,6 +654,10 @@
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            target.baseX = canvas.width / 2;
+            target.baseY = canvas.height / 2;
+            target.x = canvas.width / 2;
+            target.y = canvas.height / 2;
         });
     </script>
 </body>
