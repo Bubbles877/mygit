@@ -100,41 +100,49 @@
         // Audio Context
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // 超鋭い斬撃音
+        // 極限に鋭い斬撃音
         function playSlashSound() {
             const oscillator1 = audioCtx.createOscillator();
             const oscillator2 = audioCtx.createOscillator();
             const oscillator3 = audioCtx.createOscillator();
+            const oscillator4 = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
 
             oscillator1.connect(gainNode);
             oscillator2.connect(gainNode);
             oscillator3.connect(gainNode);
+            oscillator4.connect(gainNode);
             gainNode.connect(audioCtx.destination);
 
             oscillator1.type = 'square';
             oscillator2.type = 'sawtooth';
             oscillator3.type = 'triangle';
+            oscillator4.type = 'sine';
 
-            // 超高音でスタート
-            oscillator1.frequency.setValueAtTime(4000, audioCtx.currentTime);
-            oscillator1.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.06);
+            // 極限の高音でスタート（刀の風切り音）
+            oscillator1.frequency.setValueAtTime(8000, audioCtx.currentTime);
+            oscillator1.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.04);
 
-            oscillator2.frequency.setValueAtTime(5000, audioCtx.currentTime);
-            oscillator2.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.06);
+            oscillator2.frequency.setValueAtTime(10000, audioCtx.currentTime);
+            oscillator2.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.04);
 
-            oscillator3.frequency.setValueAtTime(6000, audioCtx.currentTime);
-            oscillator3.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.06);
+            oscillator3.frequency.setValueAtTime(12000, audioCtx.currentTime);
+            oscillator3.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.04);
 
-            gainNode.gain.setValueAtTime(0.6, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
+            oscillator4.frequency.setValueAtTime(15000, audioCtx.currentTime);
+            oscillator4.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.04);
+
+            gainNode.gain.setValueAtTime(0.7, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
 
             oscillator1.start(audioCtx.currentTime);
             oscillator2.start(audioCtx.currentTime);
             oscillator3.start(audioCtx.currentTime);
-            oscillator1.stop(audioCtx.currentTime + 0.06);
-            oscillator2.stop(audioCtx.currentTime + 0.06);
-            oscillator3.stop(audioCtx.currentTime + 0.06);
+            oscillator4.start(audioCtx.currentTime);
+            oscillator1.stop(audioCtx.currentTime + 0.04);
+            oscillator2.stop(audioCtx.currentTime + 0.04);
+            oscillator3.stop(audioCtx.currentTime + 0.04);
+            oscillator4.stop(audioCtx.currentTime + 0.04);
         }
 
         function playHitSound() {
@@ -189,8 +197,8 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // 背景の支柱
-        const pillarGeometry = new THREE.CylinderGeometry(0.15, 0.15, 8, 16);
+        // 背景の支柱（3倍の太さ）
+        const pillarGeometry = new THREE.CylinderGeometry(0.45, 0.45, 8, 16);
         const pillarMaterial = new THREE.MeshStandardMaterial({
             color: 0x1a3a5a,
             emissive: 0x0096c8,
@@ -200,8 +208,8 @@
         });
 
         const pillarPositions = [
-            [-6, 0, -8],
-            [6, 0, -8],
+            [-6, 0, -15],  // 一番後ろを更に奥へ
+            [6, 0, -15],   // 一番後ろを更に奥へ
             [-10, 0, -4],
             [10, 0, -4],
             [-8, 0, 2],
@@ -216,7 +224,7 @@
             scene.add(pillar);
 
             // 支柱のグロー
-            const glowGeometry = new THREE.CylinderGeometry(0.25, 0.25, 8, 16);
+            const glowGeometry = new THREE.CylinderGeometry(0.75, 0.75, 8, 16);
             const glowMaterial = new THREE.MeshBasicMaterial({
                 color: 0x0096c8,
                 transparent: true,
@@ -316,11 +324,12 @@
                     this.velocity.set(0, 0, 0);
                 }
 
-                // シェイク
+                // シェイク（細かく激しく）
                 if (this.shakeAmount > 0) {
-                    this.mesh.position.x += (Math.random() - 0.5) * this.shakeAmount * 0.1;
-                    this.mesh.position.y += (Math.random() - 0.5) * this.shakeAmount * 0.1;
-                    this.shakeAmount *= 0.85;
+                    this.mesh.position.x += (Math.random() - 0.5) * this.shakeAmount * 0.03;
+                    this.mesh.position.y += (Math.random() - 0.5) * this.shakeAmount * 0.03;
+                    this.mesh.position.z += (Math.random() - 0.5) * this.shakeAmount * 0.03;
+                    this.shakeAmount *= 0.92;
                 }
 
                 if (this.hitCooldown > 0) {
@@ -344,7 +353,7 @@
                 knockback.add(direction.clone().multiplyScalar(power * 0.1));
                 this.velocity.add(knockback);
 
-                this.shakeAmount = 1;
+                this.shakeAmount = 3;  // 振動を3倍に
                 this.hitCooldown = 10;
 
                 cameraShake.amount = 0.3;
@@ -362,9 +371,9 @@
 
         const target = new Target3D();
 
-        // 鋭いパーティクル（板状）
+        // 極細の鋭いパーティクル（薄い板状）
         const particles = [];
-        const sharpParticleGeometry = new THREE.PlaneGeometry(0.15, 0.4);
+        const sharpParticleGeometry = new THREE.PlaneGeometry(0.03, 0.25);
 
         class SharpParticle {
             constructor(position, color, velocity) {
@@ -468,7 +477,7 @@
                 group.add(glow);
 
                 this.mesh = group;
-                this.mesh.visible = false;
+                this.mesh.visible = true;  // 剣を表示
                 scene.add(this.mesh);
             }
 
@@ -519,18 +528,18 @@
                     line.position.y += offset;
                 }
 
-                // グローエフェクト
+                // グローエフェクト（太く派手に）
                 const tubeGeometry = new THREE.TubeGeometry(
                     new THREE.LineCurve3(start, end),
-                    2,
-                    0.15,
                     8,
+                    0.4,
+                    12,
                     false
                 );
                 const tubeMaterial = new THREE.MeshBasicMaterial({
                     color: 0x00ffff,
                     transparent: true,
-                    opacity: 0.3
+                    opacity: 0.5
                 });
                 this.tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
                 scene.add(this.tube);
