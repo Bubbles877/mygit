@@ -218,13 +218,13 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // 背景の支柱（完全な円柱）
+        // 背景の支柱（六角柱）
         const pillarGeometry = new THREE.CylinderGeometry(
             0.45,    // radiusTop
             0.45,    // radiusBottom
             8,       // height
-            64,      // radialSegments（円周方向）
-            32,      // heightSegments（高さ方向）
+            6,       // radialSegments（円周方向、6で六角形）
+            1,       // heightSegments（高さ方向）
             false    // openEnded
         );
         const pillarMaterial = new THREE.MeshStandardMaterial({
@@ -256,8 +256,8 @@
                 0.75,    // radiusTop
                 0.75,    // radiusBottom
                 8,       // height
-                64,      // radialSegments
-                32,      // heightSegments
+                6,       // radialSegments（六角形に合わせる）
+                1,       // heightSegments
                 false    // openEnded
             );
             const glowMaterial = new THREE.MeshBasicMaterial({
@@ -534,8 +534,8 @@
                 // 刀身（長く）
                 const bladeGeometry = new THREE.BoxGeometry(0.08, 0.08, 3.5);
                 const bladeMaterial = new THREE.MeshStandardMaterial({
-                    color: 0xe0f0ff,  // 青白く
-                    emissive: 0x8080ff,  // 青白い発光
+                    color: 0xf0f8ff,  // ほぼ白、わずかに青
+                    emissive: 0xb0c0ff,  // 淡い青白の発光
                     emissiveIntensity: 0.5,
                     roughness: 0.2,
                     metalness: 0.9
@@ -572,7 +572,7 @@
                 // グロー（長く）
                 const glowGeometry = new THREE.BoxGeometry(0.15, 0.15, 3.7);
                 const glowMaterial = new THREE.MeshBasicMaterial({
-                    color: 0xc0e0ff,  // 青白く
+                    color: 0xe0f0ff,  // 明るい青白
                     transparent: true,
                     opacity: 0.3
                 });
@@ -660,7 +660,7 @@
                 this.lines = [];
                 for (let i = 0; i < 5; i++) {
                     const material = new THREE.LineBasicMaterial({
-                        color: 0xc0e0ff,  // 青白く
+                        color: 0xe0f0ff,  // 明るい青白
                         transparent: true,
                         opacity: 0.9 - i * 0.15,
                         linewidth: 5 - i
@@ -685,7 +685,7 @@
                     false
                 );
                 const tubeMaterial = new THREE.MeshBasicMaterial({
-                    color: 0xc0e0ff,  // 青白く
+                    color: 0xe0f0ff,  // 明るい青白
                     transparent: true,
                     opacity: 0.6
                 });
